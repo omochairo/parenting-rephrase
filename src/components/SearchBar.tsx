@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search } from 'lucide-react';
+// import { Search } from 'lucide-react'; // Removing unused import
 
 interface SearchBarProps {
     value: string;

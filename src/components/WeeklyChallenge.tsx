@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Lightbulb, Info } from 'lucide-react';
+// import { Lightbulb, Info } from 'lucide-react'; // Removing unused import
 
 interface WeeklyContent {
     week: number;
