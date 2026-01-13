@@ -34,11 +34,26 @@ const RephraseCard: React.FC<RephraseCardProps> = ({
                     <div className="text before-text">「{item.before}」</div>
                 </div>
 
-                <div className="arrow">→</div>
+                <div className="arrow">⬇︎</div>
 
-                <div className="after-section">
-                    <div className="label">言い換え後</div>
-                    <div className="text after-text">「{item.after}」</div>
+                <div className="after-section-tabs">
+                    <div className="tab-header">
+                        <span className="tab-label empathy">💕 共感</span>
+                        <span className="tab-label action">✨ 行動</span>
+                        <span className="tab-label logic">💡 判断</span>
+                    </div>
+                    <div className="type-row empathy-row">
+                        <span className="type-badge">キモチ</span>
+                        <p className="after-text-multi">「{item.after.empathy}」</p>
+                    </div>
+                    <div className="type-row action-row">
+                        <span className="type-badge">ヤル気</span>
+                        <p className="after-text-multi">「{item.after.action}」</p>
+                    </div>
+                    <div className="type-row logic-row">
+                        <span className="type-badge">ナットク</span>
+                        <p className="after-text-multi">「{item.after.logic}」</p>
+                    </div>
                 </div>
             </div>
 
@@ -53,6 +68,31 @@ const RephraseCard: React.FC<RephraseCardProps> = ({
                         #{tag}
                     </span>
                 ))}
+            </div>
+
+            <div className="share-section">
+                <a
+                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                        `「${item.before}」の言い換え！\n💕共感: ${item.after.empathy}\n✨行動: ${item.after.action}\n#育児の言い換え`
+                    )}&url=${encodeURIComponent(window.location.href)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="share-btn x-share"
+                    aria-label="Xでシェア"
+                >
+                    𝕏 でシェア
+                </a>
+                <a
+                    href={`https://www.threads.net/intent/post?text=${encodeURIComponent(
+                        `「${item.before}」の言い換え！\n💕共感: ${item.after.empathy}\n✨行動: ${item.after.action}\n#育児の言い換え ${window.location.href}`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="share-btn threads-share"
+                    aria-label="Threadsでシェア"
+                >
+                    Threads
+                </a>
             </div>
         </div>
     );

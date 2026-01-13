@@ -3,9 +3,15 @@ export interface RephraseItem {
   category: string;
   situation: string;
   before: string;
-  after: string;
+  after: {
+    empathy: string; // 共感：感情の受容
+    action: string;  // 行動促進：ポジティブな動機づけ
+    logic: string;   // 論理説明：理性への働きかけ
+  };
   reason: string;
   tags: string[];
+  targetAges: string[];
+  moods: string[];
 }
 
 export type Category =
