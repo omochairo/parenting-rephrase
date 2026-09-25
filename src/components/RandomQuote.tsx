@@ -1,26 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { RephraseItem } from '../types';
-import { allRephraseData } from '../data';
+import React, { useState, useEffect, useRef } from 'react';
+import { RephraseGroup } from '../types';
+import { rephraseGroups } from '../data';
+import { daysSinceEpochJST } from '../dates';
 import './RandomQuote.css';
 
-const RandomQuote: React.FC = () => {
-    const [quote, setQuote] = useState<RephraseItem | null>(null);
-    const [isAnimating, setIsAnimating] = useState(false);
+// 「今日のひとこと」は日付で決まる（1日の中でリロードしても変わらない）
+function todaysQuote(): RephraseGroup {
+    return rephraseGroups[daysSinceEpochJST() % rephraseGroups.length];
+}
 
-    const getRandomQuote = () => {
+const RandomQuote: React.FC = () => {
+    const [quote, setQuote] = useState<RephraseGroup>(todaysQuote);
+    const [isAnimating, setIsAnimating] = useState(false);
+    const timerRef = useRef<number | undefined>(undefined);
+
+    useEffect(() => () => window.clearTimeout(timerRef.current), []);
+
+    const showAnother = () => {
         setIsAnimating(true);
-        setTimeout(() => {
-            const randomIndex = Math.floor(Math.random() * allRephraseData.length);
-            setQuote(allRephraseData[randomIndex]);
+        window.clearTimeout(timerRef.current);
+        timerRef.current = window.setTimeout(() => {
+            setQuote((cur) => {
+                const others = rephraseGroups.filter((g) => g.key !== cur.key);
+                return others[Math.floor(Math.random() * others.length)];
+            });
             setIsAnimating(false);
         }, 300);
     };
-
-    useEffect(() => {
-        getRandomQuote();
-    }, []);
-
-    if (!quote) return null;
 
     return (
         <div className="random-quote-container">
@@ -31,18 +37,18 @@ const RandomQuote: React.FC = () => {
                 <div className="quote-situation">場面：{quote.situation}</div>
                 <div className="quote-content">
                     <div className="quote-before">
-                        <span className="cross-icon">✕</span> {quote.before}
+                        <span className="cross-icon">✕</span> {quote.befores[0]}
                     </div>
                 </div>
                 <div className="quote-arrow">⬇︎</div>
                 <div className="quote-after">
                     <div className="quote-type">💕 共感: {quote.after.empathy}</div>
                     <div className="quote-type">✨ 行動: {quote.after.action}</div>
-                    <div className="quote-type">💡 判断: {quote.after.logic}</div>
+                    <div className="quote-type">💡 論理: {quote.after.logic}</div>
                 </div>
             </div>
             <p className="quote-reason">💡 {quote.reason}</p>
-            <button className="refresh-btn" onClick={getRandomQuote} aria-label="別の言葉を見る">
+            <button className="refresh-btn" onClick={showAnother} aria-label="別の言葉を見る">
                 🔄 別の言葉を見る
             </button>
         </div>

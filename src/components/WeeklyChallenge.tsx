@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-// import { Lightbulb, Info } from 'lucide-react'; // Removing unused import
+import React from 'react';
+import { weekIndexJST } from '../dates';
 
 interface WeeklyContent {
     week: number;
@@ -35,16 +35,15 @@ const weeklyData: WeeklyContent[] = [
     }
 ];
 
-const WeeklyChallenge: React.FC = () => {
-    // 現在の週番号に基づいてコンテンツを決定（簡易的に4週でローテーション）
-    const currentContent = useMemo(() => {
-        // 現在の日付から週番号（1-52）のようなものを簡易算出
-        // ここではシンプルに「現在時刻(ms) / 1週間(ms)」の剰余で決定
-        const today = new Date();
-        const oneWeek = 1000 * 60 * 60 * 24 * 7;
-        const weekIndex = Math.floor(today.getTime() / oneWeek) % weeklyData.length;
-        return weeklyData[weekIndex];
-    }, []);
+interface WeeklyChallengeProps {
+    // 「今日使えた！」を押した回数
+    usedToday: number;
+    usedThisWeek: number;
+}
+
+const WeeklyChallenge: React.FC<WeeklyChallengeProps> = ({ usedToday, usedThisWeek }) => {
+    // 月曜始まり（日本時間）の週番号で4週ローテーション
+    const currentContent = weeklyData[weekIndexJST() % weeklyData.length];
 
     return (
         <div className="weekly-section">
@@ -53,6 +52,11 @@ const WeeklyChallenge: React.FC = () => {
                     <span className="icon">🌱</span> 今週のチャレンジ
                 </h3>
                 <p className="challenge-text">{currentContent.challenge}</p>
+                <p className="usage-count" aria-live="polite">
+                    {usedThisWeek > 0
+                        ? `🌸 今週 ${usedThisWeek} 回、言い換えできました（今日 ${usedToday} 回）`
+                        : 'カードの「今日使えた！」を押すと、ここに記録されます'}
+                </p>
             </div>
 
             <div className="weekly-column-card">

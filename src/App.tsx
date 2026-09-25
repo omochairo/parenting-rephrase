@@ -1,5 +1,8 @@
-import { useState, useEffect } from 'react';
-import { allRephraseData, categories } from './data';
+import { useState, useEffect, useMemo } from 'react';
+import { LifeBuoy } from 'lucide-react';
+import { rephraseGroups, allCategories, scenes, ageBuckets, legacyIdToGroupKey } from './data';
+import { RephraseGroup } from './types';
+import { loadJSON, saveJSON } from './storage';
 import SearchBar from './components/SearchBar';
 import FilterPanel from './components/FilterPanel';
 import RephraseCard from './components/RephraseCard';
@@ -7,126 +10,210 @@ import RandomQuote from './components/RandomQuote';
 import WeeklyChallenge from './components/WeeklyChallenge';
 import InstallPrompt from './components/InstallPrompt';
 import HelpModal from './components/HelpModal';
+import SosModal from './components/SosModal';
+import { dateKeyJST, weekIndexJST } from './dates';
 import './App.css';
 
-const ages = ['0-1歳', '2-3歳', '4-6歳', '小学生'];
 const moods = ['イライラ', '急いでる', '余裕なし'];
 
-const scenes = [
-    { label: '朝の支度', tag: '朝', icon: '☀️' },
-    { label: '食事', tag: '食事', icon: '🍽️' },
-    { label: '片付け', tag: '片付け', icon: '🧸' },
-    { label: 'お風呂', tag: 'お風呂', icon: '🛁' },
-    { label: '寝かしつけ', tag: '就寝', icon: '💤' }, // Assuming '就寝' is the tag, need to verify
-    { label: '外出', tag: '外出', icon: '👟' },
-    { label: 'トイレ', tag: 'トイレ', icon: '🚽' },
-    { label: '遊び', tag: '遊び', icon: '🎮' },
+const FAVORITES_KEY = 'parenting-favorites-v2';
+const LEGACY_FAVORITES_KEY = 'parenting-favorites';
+const HISTORY_KEY = 'parenting-search-history';
+const USAGE_KEY = 'parenting-usage-log';
+
+// 「今日使えた！」の記録。{ 'YYYY-MM-DD': 回数 }
+type UsageLog = Record<string, number>;
+
+function loadUsage(): UsageLog {
+    const saved = loadJSON<unknown>(USAGE_KEY, {});
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return {};
+    const log: UsageLog = {};
+    for (const [k, v] of Object.entries(saved)) {
+        if (typeof v === 'number') log[k] = v;
+    }
+    return log;
+}
+
+function countThisWeek(log: UsageLog): number {
+    const week = weekIndexJST();
+    return Object.entries(log)
+        .filter(([date]) => weekIndexJST(new Date(`${date}T12:00:00+09:00`)) === week)
+        .reduce((sum, [, n]) => sum + n, 0);
+}
+
+// お気に入りは場面名で保存する。旧形式（連番 id）が残っていれば一度だけ移行する
+function loadFavorites(): string[] {
+    const saved = loadJSON<unknown>(FAVORITES_KEY, null);
+    if (Array.isArray(saved)) {
+        return saved.filter((v): v is string => typeof v === 'string');
+    }
+    const legacy = loadJSON<unknown>(LEGACY_FAVORITES_KEY, []);
+    if (!Array.isArray(legacy)) return [];
+    const keys = legacy
+        .filter((v): v is number => typeof v === 'number')
+        .map(legacyIdToGroupKey)
+        .filter((k): k is string => k !== undefined);
+    return Array.from(new Set(keys));
+}
+
+function loadHistory(): string[] {
+    const saved = loadJSON<unknown>(HISTORY_KEY, []);
+    return Array.isArray(saved) ? saved.filter((v): v is string => typeof v === 'string') : [];
+}
+
+function initialQuery(): string {
+    return new URLSearchParams(window.location.search).get('q') ?? '';
+}
+
+// 検索ヒット判定。ヒットした「言い換え前」があればそれを返す
+function matchGroup(group: RephraseGroup, query: string): { hit: boolean; matchedBefore?: string } {
+    if (!query) return { hit: true };
+    const q = query.toLowerCase();
+    const matchedBefore = group.befores.find((b) => b.toLowerCase().includes(q));
+    if (matchedBefore) return { hit: true, matchedBefore };
+    const fields = [
+        group.situation,
+        group.after.empathy,
+        group.after.action,
+        group.after.logic,
+        group.reason,
+        ...group.tags,
+    ];
+    return { hit: fields.some((f) => f.toLowerCase().includes(q)) };
+}
+
+// 「早くして」「片付けなさい」のように語尾まで打つと部分一致しないので、
+// 0件のときは命令・依頼の語尾を落とした語幹で探し直す
+// 1文字の語尾（「寝ろ」の「ろ」など）は名詞の末尾と区別できないので（「うしろ」「おふろ」）、
+// 語幹が3文字以上残るときだけ落とす。どの場合も語幹は2文字以上残す（「まって」→「ま」にしない）
+const ENDINGS: { pattern: RegExp; minStem: number }[] = [
+    { pattern: /[!！?？。、\s]+$/, minStem: 1 },
+    { pattern: /(しなさい|なさい|してよ|してね|ってよ|ってね|しろ|して|って|てよ|てね)$/, minStem: 2 },
+    { pattern: /[ろて]$/, minStem: 3 },
 ];
 
+function stemQuery(query: string): string {
+    let stem = query.trim();
+    for (let changed = true; changed; ) {
+        changed = false;
+        for (const { pattern, minStem } of ENDINGS) {
+            const next = stem.replace(pattern, '');
+            if (next !== stem && next.length >= minStem) {
+                stem = next;
+                changed = true;
+            }
+        }
+    }
+    return stem;
+}
+
 function App() {
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState(initialQuery);
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [selectedAge, setSelectedAge] = useState<string | null>(null);
     const [selectedMood, setSelectedMood] = useState<string | null>(null);
-    const [selectedScene, setSelectedScene] = useState<string | null>(null); // New State
-    const [favorites, setFavorites] = useState<number[]>([]);
+    const [selectedScene, setSelectedScene] = useState<string | null>(null);
+    const [favorites, setFavorites] = useState<string[]>(loadFavorites);
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-    const [searchHistory, setSearchHistory] = useState<string[]>([]);
+    const [searchHistory, setSearchHistory] = useState<string[]>(loadHistory);
     const [showHistory, setShowHistory] = useState(false);
+    const [showHelp, setShowHelp] = useState(false);
+    const [showSos, setShowSos] = useState(false);
+    const [usage, setUsage] = useState<UsageLog>(loadUsage);
 
-    // localStorageからお気に入りと履歴を読み込む
     useEffect(() => {
-        const savedFavorites = localStorage.getItem('parenting-favorites');
-        if (savedFavorites) {
-            setFavorites(JSON.parse(savedFavorites));
-        }
-        const savedHistory = localStorage.getItem('parenting-search-history');
-        if (savedHistory) {
-            setSearchHistory(JSON.parse(savedHistory));
-        }
-    }, []);
-
-    // お気に入りをlocalStorageに保存
-    useEffect(() => {
-        localStorage.setItem('parenting-favorites', JSON.stringify(favorites));
+        saveJSON(FAVORITES_KEY, favorites);
     }, [favorites]);
 
-    // 検索履歴を保存
-    const saveSearchHistory = (query: string) => {
-        if (!query.trim()) return;
-        const newHistory = [query, ...searchHistory.filter(h => h !== query)].slice(0, 5);
-        setSearchHistory(newHistory);
-        localStorage.setItem('parenting-search-history', JSON.stringify(newHistory));
+    useEffect(() => {
+        saveJSON(USAGE_KEY, usage);
+    }, [usage]);
+
+    const markUsed = () => {
+        const today = dateKeyJST();
+        setUsage((prev) => ({ ...prev, [today]: (prev[today] ?? 0) + 1 }));
     };
 
-    // 検索実行ハンドラ (Enterキーまたはフォーカスアウトで呼ぶ想定だが、今回はシンプルに効果的に履歴に残すため、検索バーの変更とは別に管理するか、デバウンスで保存するかが一般的。
-    // ここでは、検索バーに「履歴から検索」機能をつけたり、ある程度入力確定したタイミングで保存するのが良いが、
-    // シンプルに「検索バーでEnterを押した時」や「検索結果が表示された時」にする。
-    // ReactのonChangeで都度保存は多すぎるので、一旦履歴機能は「検索バーの下に履歴を表示し、タップで検索実行」のみにフォーカスし、
-    // 履歴への追加は「検索後に何かしらのアクションをした時」か、明示的な検索ボタンがないので、
-    // ユーザーが検索バーからフォーカスを外した時(onBlur)に保存するように実装する)
-    const handleSearchBlur = () => {
+    // 検索語を URL に反映する（共有リンクやリロードで同じ結果を開けるように）。
+    // 1文字ごとに履歴を積まないよう replaceState にしている
+    useEffect(() => {
+        const url = new URL(window.location.href);
         if (searchQuery) {
-            saveSearchHistory(searchQuery);
+            url.searchParams.set('q', searchQuery);
+        } else {
+            url.searchParams.delete('q');
         }
-        setTimeout(() => setShowHistory(false), 200); // リンククリックの時間を確保
+        window.history.replaceState(null, '', url);
+    }, [searchQuery]);
+
+    const saveSearchHistory = (query: string) => {
+        const q = query.trim();
+        if (!q) return;
+        setSearchHistory((prev) => {
+            const next = [q, ...prev.filter((h) => h !== q)].slice(0, 5);
+            saveJSON(HISTORY_KEY, next);
+            return next;
+        });
     };
 
-    // お気に入りのトグル
-    const toggleFavorite = (id: number) => {
+    const clearSearchHistory = () => {
+        setSearchHistory([]);
+        saveJSON(HISTORY_KEY, []);
+    };
+
+    const toggleFavorite = (key: string) => {
         setFavorites((prev) =>
-            prev.includes(id) ? prev.filter((fav) => fav !== id) : [...prev, id]
+            prev.includes(key) ? prev.filter((fav) => fav !== key) : [...prev, key]
         );
     };
 
-    // フィルタリングされたデータ
-    const filteredData = allRephraseData.filter((item) => {
-        // カテゴリーフィルター
-        if (selectedCategory && item.category !== selectedCategory) {
-            return false;
-        }
+    const resetFilters = () => {
+        setSelectedCategory(null);
+        setSelectedAge(null);
+        setSelectedMood(null);
+        setSelectedScene(null);
+        setShowFavoritesOnly(false);
+        setSearchQuery('');
+    };
 
-        // シーンフィルター (New)
-        // タグに含まれているかチェック。部分一致も含めるか検討だが、タグは完全一致推奨
-        if (selectedScene && item.tags && !item.tags.some(tag => tag.includes(selectedScene))) {
-            // 寝かしつけ (就寝) のタグ揺らぎに対応するため includes にしておく
-            return false;
-        }
+    const hasActiveFilter =
+        selectedCategory !== null ||
+        selectedAge !== null ||
+        selectedMood !== null ||
+        selectedScene !== null ||
+        showFavoritesOnly ||
+        searchQuery !== '';
 
-        // 年齢フィルター
-        if (selectedAge && item.targetAges && !item.targetAges.includes(selectedAge)) {
-            return false;
-        }
+    const { filteredData, stemmedQuery } = useMemo(() => {
+        const candidates = rephraseGroups.filter((group) => {
+            if (selectedCategory && group.category !== selectedCategory) return false;
+            if (selectedScene && !group.tags.some((tag) => tag.includes(selectedScene))) return false;
+            if (selectedAge && !group.targetAges.includes(selectedAge)) return false;
+            if (selectedMood && !group.moods.includes(selectedMood)) return false;
+            if (showFavoritesOnly && !favorites.includes(group.key)) return false;
+            return true;
+        });
+        const search = (query: string) =>
+            candidates.flatMap((group) => {
+                const { hit, matchedBefore } = matchGroup(group, query);
+                return hit ? [{ group, matchedBefore }] : [];
+            });
 
-        // 気分フィルター
-        if (selectedMood && item.moods && !item.moods.includes(selectedMood)) {
-            return false;
-        }
+        const query = searchQuery.trim();
+        const exact = search(query);
+        const stem = stemQuery(query);
+        if (exact.length > 0 || stem === query) return { filteredData: exact, stemmedQuery: null };
+        return { filteredData: search(stem), stemmedQuery: stem };
+    }, [selectedCategory, selectedScene, selectedAge, selectedMood, showFavoritesOnly, favorites, searchQuery]);
 
-        // お気に入りフィルター
-        if (showFavoritesOnly && !favorites.includes(item.id)) {
-            return false;
-        }
+    const phraseCount = filteredData.reduce((sum, r) => sum + r.group.befores.length, 0);
 
-        // 検索フィルター
-        if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            const matchesQuery =
-                item.situation.toLowerCase().includes(query) ||
-                item.before.toLowerCase().includes(query) ||
-                item.after.empathy.toLowerCase().includes(query) ||
-                item.after.action.toLowerCase().includes(query) ||
-                item.after.logic.toLowerCase().includes(query) ||
-                item.reason.toLowerCase().includes(query) ||
-                item.tags.some((tag) => tag.toLowerCase().includes(query));
-            return matchesQuery;
-        }
-
-        return true;
-    });
-
-    // Help Modal Handler
-    const [showHelp, setShowHelp] = useState(false);
+    // 0件のときのおすすめ。描画のたびに入れ替わらないよう、条件が変わった時だけ選び直す
+    const isEmpty = filteredData.length === 0;
+    const suggestions = useMemo(() => {
+        if (!isEmpty) return [];
+        return [...rephraseGroups].sort(() => Math.random() - 0.5).slice(0, 2);
+    }, [isEmpty, searchQuery]);
 
     return (
         <div className="app">
@@ -141,13 +228,18 @@ function App() {
                 <p className="subtitle">
                     押しつけない、気づきの言葉がけ
                 </p>
+                <button className="sos-button" onClick={() => setShowSos(true)}>
+                    <LifeBuoy size={18} aria-hidden="true" /> いま困ってる
+                </button>
             </header>
 
             <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
+            {/* 閉じたらアンマウントして、次に開いたときは場面選択から始める */}
+            {showSos && <SosModal onClose={() => setShowSos(false)} onMarkUsed={markUsed} />}
 
             <div className="container">
                 <RandomQuote />
-                <WeeklyChallenge />
+                <WeeklyChallenge usedToday={usage[dateKeyJST()] ?? 0} usedThisWeek={countThisWeek(usage)} />
 
                 <div className="controls">
                     <div className="search-section">
@@ -157,32 +249,28 @@ function App() {
                                 setSearchQuery(val);
                                 setShowHistory(true);
                             }}
+                            onClear={() => setSearchQuery('')}
                             onFocus={() => setShowHistory(true)}
                             onBlur={() => {
-                                // 少し遅延させて、履歴クリックが先に走るようにする
-                                setTimeout(() => {
-                                    handleSearchBlur();
-                                    setShowHistory(false);
-                                }, 200);
+                                saveSearchHistory(searchQuery);
+                                setShowHistory(false);
                             }}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
-                                    saveSearchHistory(searchQuery);
-                                    setShowHistory(false);
-                                    // Enter時はフォーカスを外してキーボードを閉じる（スマホ対策）
-                                    (e.target as HTMLInputElement).blur();
+                                    // Enter時はフォーカスを外してキーボードを閉じる（スマホ対策）。履歴保存は onBlur で行う
+                                    e.currentTarget.blur();
                                 }
                             }}
                         />
                         {showHistory && searchHistory.length > 0 && (
                             <div
                                 className="search-history"
-                                onMouseDown={(e) => e.preventDefault()} // これでBlurの発火を防ぐ
+                                onMouseDown={(e) => e.preventDefault()} // 履歴クリック前に input の blur が走るのを防ぐ
                             >
                                 <span className="history-label">最近:</span>
-                                {searchHistory.map((hist, idx) => (
+                                {searchHistory.map((hist) => (
                                     <button
-                                        key={idx}
+                                        key={hist}
                                         className="history-chip"
                                         onClick={() => {
                                             setSearchQuery(hist);
@@ -193,18 +281,21 @@ function App() {
                                         {hist}
                                     </button>
                                 ))}
+                                <button className="history-clear" onClick={clearSearchHistory}>
+                                    履歴を消す
+                                </button>
                             </div>
                         )}
                     </div>
 
                     <FilterPanel
-                        categories={categories}
+                        categories={allCategories}
                         selectedCategory={selectedCategory}
                         onSelectCategory={setSelectedCategory}
                         scenes={scenes}
                         selectedScene={selectedScene}
                         onSelectScene={setSelectedScene}
-                        ages={ages}
+                        ages={ageBuckets}
                         selectedAge={selectedAge}
                         onSelectAge={setSelectedAge}
                         moods={moods}
@@ -216,65 +307,68 @@ function App() {
                         <button
                             className={`toggle-btn ${showFavoritesOnly ? 'active' : ''}`}
                             onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                            aria-pressed={showFavoritesOnly}
                         >
                             {showFavoritesOnly ? '全て表示' : `お気に入りのみ (${favorites.length})`}
                         </button>
+                        {hasActiveFilter && (
+                            <button className="toggle-btn reset-inline" onClick={resetFilters}>
+                                条件をリセット
+                            </button>
+                        )}
                     </div>
                 </div>
 
-                <div className="results-info">
-                    {filteredData.length} 件の言い換え
+                <div className="results-info" aria-live="polite">
+                    {stemmedQuery && filteredData.length > 0 && (
+                        <span className="stem-note">「{searchQuery.trim()}」は見つからなかったので「{stemmedQuery}」で探しました<br /></span>
+                    )}
+                    {filteredData.length} 場面・{phraseCount} 通りの言い方
                 </div>
 
                 <div className="cards-grid">
                     {filteredData.length > 0 ? (
-                        filteredData.map((item) => (
+                        filteredData.map(({ group, matchedBefore }) => (
                             <RephraseCard
-                                key={item.id}
-                                item={item}
-                                isFavorite={favorites.includes(item.id)}
+                                key={group.key}
+                                item={group}
+                                matchedBefore={matchedBefore}
+                                isFavorite={favorites.includes(group.key)}
                                 onToggleFavorite={toggleFavorite}
+                                onMarkUsed={markUsed}
                             />
                         ))
                     ) : (
                         <div className="no-results">
                             <span className="no-results-icon">😢</span>
-                            <p>条件に合う言葉が見つかりませんでした</p>
-                            <p className="no-results-hint">
-                                条件を少し広げてみるか、<br />
-                                「すべて」に戻して探してみてください
+                            <p>
+                                {showFavoritesOnly && favorites.length === 0
+                                    ? 'まだお気に入りがありません'
+                                    : '条件に合う言葉が見つかりませんでした'}
                             </p>
-                            <button
-                                className="reset-btn"
-                                onClick={() => {
-                                    setSelectedCategory(null);
-                                    setSelectedAge(null);
-                                    setSelectedMood(null);
-                                    setSelectedScene(null); // Reset scene too
-                                    setSearchQuery('');
-                                }}
-                            >
+                            <p className="no-results-hint">
+                                {showFavoritesOnly && favorites.length === 0 ? (
+                                    <>カードの ♡ を押すと、ここに集まります</>
+                                ) : (
+                                    <>条件を少し広げてみるか、<br />「すべて」に戻して探してみてください</>
+                                )}
+                            </p>
+                            <button className="reset-btn" onClick={resetFilters}>
                                 条件をリセットする
                             </button>
 
-                            {/* Smart Suggestions */}
                             <div className="smart-suggestions">
                                 <p className="suggestions-title">こんな言葉はいかがですか？</p>
                                 <div className="suggestion-cards">
-                                    {allRephraseData
-                                        .slice(0, 3) // 簡易的に最初の3件を表示（ランダムシャッフルも可だが固定で十分）
-                                        // ※本来はカテゴリー違いなどを出したいが、シンプルにデータ先頭3件などにする
-                                        // あるいはランダムに取得するロジックを入れる
-                                        .sort(() => 0.5 - Math.random())
-                                        .slice(0, 2) // 2件表示
-                                        .map((item) => (
-                                            <RephraseCard
-                                                key={`suggestion-${item.id}`}
-                                                item={item}
-                                                isFavorite={favorites.includes(item.id)}
-                                                onToggleFavorite={toggleFavorite}
-                                            />
-                                        ))}
+                                    {suggestions.map((group) => (
+                                        <RephraseCard
+                                            key={`suggestion-${group.key}`}
+                                            item={group}
+                                            isFavorite={favorites.includes(group.key)}
+                                            onToggleFavorite={toggleFavorite}
+                                onMarkUsed={markUsed}
+                                        />
+                                    ))}
                                 </div>
                             </div>
                         </div>
@@ -287,7 +381,7 @@ function App() {
             <footer className="footer">
                 <p>作成者：いろパパ@<a href="https://omcha.jp/" target="_blank" rel="noopener noreferrer">おもちゃいろ</a> / <a href="https://home.omcha.jp/" target="_blank" rel="noopener noreferrer">おうちいろ</a></p>
             </footer>
-        </div >
+        </div>
     );
 }
 

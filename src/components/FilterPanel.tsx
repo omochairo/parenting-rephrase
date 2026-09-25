@@ -10,9 +10,9 @@ interface FilterPanelProps {
     moods: string[];
     selectedMood: string | null;
     onSelectMood: (mood: string | null) => void;
-    scenes: { label: string; tag: string; icon: string }[]; // New prop
-    selectedScene: string | null; // New prop
-    onSelectScene: (scene: string | null) => void; // New prop
+    scenes: { label: string; tag: string; icon: string }[];
+    selectedScene: string | null;
+    onSelectScene: (scene: string | null) => void;
 }
 
 const FilterPanel: React.FC<FilterPanelProps> = ({
@@ -37,6 +37,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                 <div className="filter-chips">
                     <button
                         className={`filter-chip ${selectedCategory === null ? 'active' : ''}`}
+                        aria-pressed={selectedCategory === null}
                         onClick={() => onSelectCategory(null)}
                     >
                         すべて
@@ -45,6 +46,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                         <button
                             key={category}
                             className={`filter-chip ${selectedCategory === category ? 'active' : ''}`}
+                            aria-pressed={selectedCategory === category}
                             onClick={() => onSelectCategory(category)}
                         >
                             {category}
@@ -53,12 +55,13 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                 </div>
             </div>
 
-            {/* Scene Filter (New) */}
+            {/* Scene Filter */}
             <div className="filter-section">
                 <h3 className="filter-title">場面から探す</h3>
                 <div className="filter-scenes">
                     <button
                         className={`filter-scene-btn ${selectedScene === null ? 'active' : ''}`}
+                        aria-pressed={selectedScene === null}
                         onClick={() => onSelectScene(null)}
                     >
                         指定なし
@@ -67,6 +70,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                         <button
                             key={scene.label}
                             className={`filter-scene-btn ${selectedScene === scene.tag ? 'active' : ''}`}
+                            aria-pressed={selectedScene === scene.tag}
                             onClick={() => onSelectScene(scene.tag)}
                         >
                             <span className="scene-icon">{scene.icon}</span>
@@ -82,6 +86,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                 <div className="filter-chips">
                     <button
                         className={`filter-chip ${selectedAge === null ? 'active' : ''}`}
+                        aria-pressed={selectedAge === null}
                         onClick={() => onSelectAge(null)}
                     >
                         指定なし
@@ -90,6 +95,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                         <button
                             key={age}
                             className={`filter-chip ${selectedAge === age ? 'active' : ''}`}
+                            aria-pressed={selectedAge === age}
                             onClick={() => onSelectAge(age)}
                         >
                             {age}
@@ -104,6 +110,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                 <div className="filter-moods">
                     <button
                         className={`filter-mood-btn ${selectedMood === null ? 'active' : ''}`}
+                        aria-pressed={selectedMood === null}
                         onClick={() => onSelectMood(null)}
                     >
                         指定なし
@@ -112,6 +119,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
                         <button
                             key={mood}
                             className={`filter-mood-btn ${selectedMood === mood ? 'active' : ''}`}
+                            aria-pressed={selectedMood === mood}
                             onClick={() => onSelectMood(mood)}
                         >
                             {mood === 'イライラ' ? '😡 ' : mood === '急いでる' ? '🏃 ' : '😰 '}

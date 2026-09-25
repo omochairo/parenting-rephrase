@@ -1,28 +1,42 @@
 import React from 'react';
-// import { Search } from 'lucide-react'; // Removing unused import
+import { X } from 'lucide-react';
 
 interface SearchBarProps {
     value: string;
     onChange: (value: string) => void;
+    onClear: () => void;
     onFocus?: () => void;
     onBlur?: () => void;
-    onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void; // New prop
+    onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }
 
-const SearchBar: React.FC<SearchBarProps> = ({ value, onChange, onFocus, onBlur, onKeyDown }) => {
+const SearchBar: React.FC<SearchBarProps> = ({ value, onChange, onClear, onFocus, onBlur, onKeyDown }) => {
     return (
         <div className="search-bar">
             <input
-                type="text"
+                type="search"
+                enterKeyHint="search"
                 className="search-input"
-                placeholder="キーワードで検索..."
+                placeholder="言いがちな言葉や場面で検索（例: 早くして）"
+                aria-label="キーワード検索"
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 onFocus={onFocus}
                 onBlur={onBlur}
-                onKeyDown={onKeyDown} // Pass it down
+                onKeyDown={onKeyDown}
             />
-            <span className="search-icon">🔍</span>
+            {value ? (
+                <button
+                    className="search-clear"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={onClear}
+                    aria-label="検索語を消す"
+                >
+                    <X size={18} />
+                </button>
+            ) : (
+                <span className="search-icon" aria-hidden="true">🔍</span>
+            )}
         </div>
     );
 };
