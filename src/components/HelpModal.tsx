@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X, Heart, Sparkles, BrainCircuit } from 'lucide-react';
 
 interface HelpModalProps {
@@ -7,13 +7,28 @@ interface HelpModalProps {
 }
 
 const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
+    useEffect(() => {
+        if (!isOpen) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [isOpen, onClose]);
+
     if (!isOpen) return null;
 
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                <button className="modal-close" onClick={onClose}><X size={24} /></button>
-                <h2 className="modal-title">3つの言い換えタイプについて</h2>
+            <div
+                className="modal-content"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="help-title"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <button className="modal-close" onClick={onClose} aria-label="閉じる"><X size={24} /></button>
+                <h2 className="modal-title" id="help-title">3つの言い換えタイプについて</h2>
                 <p className="modal-description">
                     このアプリでは、1つの言葉に対して3つの異なるアプローチを提案します。
                     お子さんの性格やその時の状況に合わせて使い分けてみてください。

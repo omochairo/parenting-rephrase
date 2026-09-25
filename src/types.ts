@@ -21,3 +21,15 @@ export type Category =
   | '感情の受け止め'
   | '行動の促し'
   | '危険回避';
+
+export interface RephraseGroup {
+  key: string; // 場面名。お気に入りの保存キーにも使う
+  category: string;
+  situation: string;
+  befores: string[];
+  after: RephraseItem['after'];
+  reason: string;
+  tags: string[];
+  targetAges: string[];
+  moods: string[];
+}

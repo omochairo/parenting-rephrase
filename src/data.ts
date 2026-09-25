@@ -1,4 +1,4 @@
-import { RephraseItem } from './types';
+import { RephraseItem, RephraseGroup } from './types';
 
 export const categories = [
     '日常の言葉かけ',
@@ -353,11 +353,11 @@ const masterData = [
         s: '失敗して拗ねる',
         b: ['そんなことで拗ねない', 'もう一回やりなさい', '男の子でしょ', '泣かないの'],
         a: {
-            empathy: '悔しかったね。その気持ちは頑張った証拠だよ',
+            empathy: '悔しかったね。その気持ちは頑張った証拠だよ。',
             action: 'どうやったら上手くいくか、作戦会議しよう！',
             logic: '失敗は「こうやったらダメ」って分かった大発見だよ。'
         },
-        r: 'ネガティブな感情の裏にある「向上心」を認めてあげます',
+        r: 'ネガティブな感情の裏にある「向上心」を認めてあげます。',
         t: ['失敗', '悔しさ'], c: '感情の受け止め', age: ['4-6歳', '小学生'], m: ['余裕なし']
     },
 
@@ -370,7 +370,7 @@ const masterData = [
             action: '特等席はここだよ（後ろを指して）',
             logic: '近くで見ると目が疲れちゃうから、離れて見ようね。'
         },
-        r: '禁止するより、望ましい場所や行動（特等席）を提案するとスムーズです',
+        r: '禁止するより、望ましい場所や行動（特等席）を提案するとスムーズです。',
         t: ['テレビ', '目'], c: '日常の言葉かけ', age: ['3-6歳'], m: ['余裕なし']
     },
     {
@@ -615,6 +615,19 @@ const masterData = [
     }
 ];
 
+// 年齢フィルターの区分。データ側の '1-3歳' '3-6歳' のような表記揺れを、重なる区分すべてに展開する
+export const ageBuckets = ['0-1歳', '2-3歳', '4-6歳', '小学生'];
+
+const ageAliases: Record<string, string[]> = {
+    '1-3歳': ['0-1歳', '2-3歳'],
+    '3-6歳': ['2-3歳', '4-6歳'],
+};
+
+function normalizeAges(ages: string[]): string[] {
+    const out = ages.flatMap((age) => ageAliases[age] ?? [age]);
+    return ageBuckets.filter((bucket) => out.includes(bucket));
+}
+
 // Generate huge data by exploding 'before' variations
 function generateHugeData(): RephraseItem[] {
     let idCounter = 1;
@@ -631,13 +644,10 @@ function generateHugeData(): RephraseItem[] {
                 after: template.a, // 3-type object
                 reason: template.r,
                 tags: template.t,
-                targetAges: template.age,
+                targetAges: normalizeAges(template.age),
                 moods: template.m
             });
         });
-
-        // Add a generic one if not covered? No, the loop covers all.
-        // We can add slight randomization to ID or category if needed, but this is fine.
     });
 
     return items;
@@ -645,3 +655,29 @@ function generateHugeData(): RephraseItem[] {
 
 export const rephraseData = generateHugeData();
 export const allRephraseData = rephraseData; // For compat
+
+// 1つの場面（言い換え3タイプが共通）を1枚のカードにまとめたもの。
+// 「言い換え前」のバリエーションは befores に並ぶ
+export const rephraseGroups: RephraseGroup[] = masterData.map((template) => ({
+    key: template.s,
+    category: template.c,
+    situation: template.s,
+    befores: template.b,
+    after: template.a,
+    reason: template.r,
+    tags: template.t,
+    targetAges: normalizeAges(template.age),
+    moods: template.m,
+}));
+
+// 旧バージョンはお気に入りを連番 id で保存していた。データを追加すると id がずれるため、
+// 場面名 (key) で保存し直す
+export function legacyIdToGroupKey(id: number): string | undefined {
+    return rephraseData.find((item) => item.id === id)?.situation;
+}
+
+// フィルターに出すカテゴリーは実データから作る（宣言済みの順を優先し、残りを後ろに足す）
+export const allCategories = [
+    ...categories,
+    ...Array.from(new Set(masterData.map((t) => t.c))).filter((c) => !categories.includes(c)),
+];

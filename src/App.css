@@ -927,3 +927,385 @@
         /* prevent zoom on mobile */
     }
 }
+/* ---- 検索バーのアイコン / クリアボタン ---- */
+.search-input {
+    padding-right: 3rem;
+}
+
+.search-input::-webkit-search-cancel-button {
+    display: none;
+}
+
+.search-icon,
+.search-clear {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.search-icon {
+    pointer-events: none;
+}
+
+.search-clear {
+    width: 32px;
+    height: 32px;
+    right: 10px;
+    border: none;
+    border-radius: 50%;
+    background-color: var(--color-bg);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+}
+
+.history-clear {
+    margin-left: auto;
+    background: none;
+    border: none;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* ---- 条件リセット ---- */
+.favorite-toggle {
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.toggle-btn.reset-inline {
+    border-color: var(--color-text-muted);
+    color: var(--color-text-secondary);
+}
+
+/* ---- カード: 言い換え前のバリエーション ---- */
+.before-variants {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: var(--spacing-sm);
+}
+
+.variants-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.variant-chip {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    background-color: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    padding: 2px 10px;
+}
+
+.variants-more {
+    font-size: var(--font-size-xs);
+    background: none;
+    border: none;
+    color: var(--color-primary-dark);
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+/* ---- カード: タップでコピー ---- */
+.type-row.copyable {
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+    cursor: pointer;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.type-row.copyable:hover {
+    box-shadow: var(--shadow-sm);
+}
+
+.type-row.copyable:active {
+    transform: scale(0.98);
+}
+
+.type-row .after-text-multi {
+    flex: 1;
+}
+
+.copy-icon {
+    flex-shrink: 0;
+    margin-top: 4px;
+    color: var(--color-text-muted);
+}
+
+.copy-icon.copied {
+    color: #16a34a;
+}
+
+.copy-hint {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    text-align: right;
+    margin: 0;
+}
+
+/* ---- カード: 今日使えた！ ---- */
+.used-btn {
+    margin-top: var(--spacing-md);
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    border: 2px dashed var(--color-success);
+    border-radius: var(--border-radius-full);
+    background-color: white;
+    color: #3f8f7c;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.used-btn:hover,
+.used-btn.done {
+    background-color: var(--color-success);
+    border-style: solid;
+    color: white;
+}
+
+.usage-count {
+    margin-top: var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+/* ---- シェア ---- */
+.share-section {
+    flex-wrap: wrap;
+}
+
+.share-btn {
+    gap: 4px;
+    border: none;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.native-share {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.line-share {
+    background-color: #06c755;
+    color: white;
+}
+
+/* ---- ヘッダーの SOS ボタン ---- */
+.sos-button {
+    margin-top: var(--spacing-md);
+    padding: 10px 24px;
+    border: none;
+    border-radius: var(--border-radius-full);
+    background-color: var(--color-primary);
+    color: white;
+    font-family: inherit;
+    font-size: var(--font-size-base);
+    font-weight: 700;
+    box-shadow: var(--shadow-md);
+    cursor: pointer;
+    transition: transform var(--transition-fast);
+}
+
+.sos-button:hover {
+    transform: scale(1.04);
+}
+
+/* ---- SOS モーダル ---- */
+.sos-content {
+    text-align: center;
+}
+
+.breath {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.breath-circle {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--color-secondary-light), var(--color-secondary));
+    animation: breathe 10s ease-in-out infinite;
+}
+
+/* 4 秒で吸って、6 秒で吐く */
+@keyframes breathe {
+    0% { transform: scale(0.7); }
+    40% { transform: scale(1.15); }
+    100% { transform: scale(0.7); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .breath-circle {
+        animation: none;
+    }
+}
+
+.breath-text {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+}
+
+.breath-text span {
+    font-size: var(--font-size-sm);
+    font-weight: 400;
+    color: var(--color-text-secondary);
+}
+
+.sos-prompt {
+    font-weight: 600;
+    margin-bottom: var(--spacing-md);
+}
+
+.sos-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-sm);
+}
+
+.sos-chip {
+    padding: 10px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-full);
+    background-color: var(--color-bg);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    cursor: pointer;
+}
+
+.sos-chip:hover {
+    background-color: var(--color-primary-light);
+}
+
+.sos-answer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    text-align: left;
+}
+
+.sos-situation {
+    text-align: center;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+}
+
+.sos-phrase {
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 1.5;
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius-md);
+}
+
+.sos-phrase.empathy { background-color: #fff0f5; }
+.sos-phrase.action { background-color: #fffbeb; }
+.sos-phrase.logic { background-color: #f0f9ff; }
+
+.sos-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.close-btn.secondary {
+    background-color: white;
+    color: var(--color-primary-dark);
+    border: 2px solid var(--color-primary);
+}
+
+.close-btn:disabled {
+    background-color: var(--color-success);
+    cursor: default;
+}
+
+/* ---- モーダル共通: 小さい画面でもスクロールできるように ---- */
+.modal-content {
+    max-height: calc(100vh - 40px);
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+    animation: modalIn 0.3s;
+}
+
+/* 共通の slideUp は translateX(-50%) 前提で、中央寄せでないモーダルが横にずれるため別に持つ */
+@keyframes modalIn {
+    from {
+        transform: translateY(40px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* ---- インストール案内 ---- */
+.install-prompt {
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    border-radius: var(--border-radius-lg);
+}
+
+.install-hint {
+    display: block;
+    margin-top: 4px;
+    font-size: var(--font-size-xs);
+    opacity: 0.85;
+}
+
+.install-btn {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border: none;
+    border-radius: var(--border-radius-full);
+    background-color: var(--color-primary);
+    color: white;
+    font-family: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* ---- 小さいスマホ (iPhone SE 等) ---- */
+@media (max-width: 400px) {
+    .filter-scenes {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .help-button {
+        top: 12px;
+        right: 12px;
+    }
+}
+
+.sos-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.stem-note {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
